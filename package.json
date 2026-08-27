@@ -1,0 +1,31 @@
+{
+  "name": "watchweb",
+  "private": true,
+  "version": "1.0.0",
+  "description": "WatchWeb - website change detection and monitoring platform",
+  "workspaces": [
+    "backend",
+    "worker",
+    "dashboard",
+    "extension"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:worker": "npm run dev --workspace=worker",
+    "dev:dashboard": "npm run dev --workspace=dashboard",
+    "dev:extension": "npm run dev --workspace=extension",
+    "build": "npm run build --workspace=dashboard && npm run build --workspace=extension",
+    "build:dashboard": "npm run build --workspace=dashboard",
+    "build:extension": "npm run build --workspace=extension",
+    "test": "npm run test --workspace=backend && npm run test --workspace=worker",
+    "test:backend": "npm run test --workspace=backend",
+    "test:worker": "npm run test --workspace=worker",
+    "lint": "npm run lint --workspace=backend && npm run lint --workspace=worker && npm run lint --workspace=dashboard",
+    "lint:backend": "npm run lint --workspace=backend",
+    "lint:worker": "npm run lint --workspace=worker",
+    "lint:dashboard": "npm run lint --workspace=dashboard"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}
