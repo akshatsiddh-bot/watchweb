@@ -19,69 +19,80 @@ It filters common sources of noise such as timestamps, view counters, and random
 
 ## Architecture
 
-```text
-                         ┌──────────────────────────────┐
-                         │        Chrome Extension      │
-                         │                              │
-                         │  Popup                       │
-                         │  Content Script              │
-                         │  Background Service Worker   │
-                         └──────────────┬───────────────┘
-                                        │
-                              HTTPS REST API
-                               Bearer JWT
-                                        │
-                                        ▼
-                         ┌──────────────────────────────┐
-                         │      Node.js + Express        │
-                         │          Backend              │
-                         │                              │
-                         │  Authentication              │
-                         │  Watch Management             │
-                         │  Change History               │
-                         │  User Settings                │
-                         │  Notifications                │
-                         └──────────────┬───────────────┘
-                                        │
-                                        ▼
-                              ┌──────────────────┐
-                              │     MongoDB      │
-                              │                  │
-                              │ Users            │
-                              │ Watches          │
-                              │ Snapshots        │
-                              │ Changes          │
-                              └────────┬─────────┘
-                                       ▲
-                                       │
-                              Same MongoDB
-                              Separate Process
-                                       │
-                                       │
-                         ┌─────────────┴────────────┐
-                         │    Monitoring Worker      │
-                         │                          │
-                         │ Scheduler                │
-                         │ HTTP Fetcher             │
-                         │ Playwright Fetcher       │
-                         │ Content Extraction       │
-                         │ Normalization             │
-                         │ Hashing & Diffing         │
-                         │ Change Classification     │
-                         │ AI Summarization         │
-                         │ Notification Service     │
-                         └──────────────────────────┘
-
-                         ┌──────────────────────────┐
-                         │      Web Dashboard       │
-                         │                          │
-                         │ React + Vite + Tailwind  │
-                         └─────────────┬────────────┘
-                                       │
-                                HTTPS REST API
-                                       │
-                                       ▼
-                                  Backend API
+```text ┌──────────────────────────────┐
+                              │        CHROME EXTENSION      │
+                              │                              │
+                              │  • Popup                     │
+                              │  • Content Script            │
+                              │  • Background Service Worker │
+                              └──────────────┬───────────────┘
+                                             │
+                                             │ HTTPS REST API
+                                             │ Bearer JWT
+                                             ▼
+┌──────────────────────────────┐    ┌──────────────────────────────┐
+│        WEB DASHBOARD         │    │       NODE.JS BACKEND        │
+│                              │    │         EXPRESS API          │
+│  • React                     │    │                              │
+│  • Vite                      │──▶| • Authentication              │
+│  • Tailwind CSS              │    │  • Watch Management          │
+│  • Watch Management          │    │  • User Management           │
+│  • Change History            │    │  • Change History            │
+│  • Settings                  │    │  • Dashboard Stats           │
+└──────────────────────────────┘    │  • Notification API          │
+                                    │  • SSRF Protection           │
+                                    └──────────────┬───────────────┘
+                                                   │
+                                                   │ Mongoose
+                                                   ▼
+                                    ┌──────────────────────────────┐
+                                    │           MONGODB            │
+                                    │                              │
+                                    │  • Users                     │
+                                    │  • Watches                   │
+                                    │  • Snapshots                 │
+                                    │  • Changes                   │
+                                    └──────────────┬───────────────┘
+                                                   ▲
+                                                   │
+                                                   │ Database Access
+                                                   │
+                                    ┌──────────────┴───────────────┐
+                                    │       MONITORING WORKER      │
+                                    │                              │
+                                    │  Scheduler                   │
+                                    │      ↓                       │
+                                    │  HTTP Fetcher (Axios)        │
+                                    │      ↓                       │
+                                    │  Playwright Fallback         │
+                                    │      ↓                       │
+                                    │  Content Extraction          │
+                                    │      ↓                       │
+                                    │  Noise Normalization         │
+                                    │      ↓                       │
+                                    │  SHA-256 Hashing             │
+                                    │      ↓                       │
+                                    │  Word-Level Diff             │
+                                    │      ↓                       │
+                                    │  Change Classification       │
+                                    │      ↓                       │
+                                    │  AI Summary (Optional)       │
+                                    │      ↓                       │
+                                    │  Notification Status         │
+                                    └──────────────┬───────────────┘
+                                                   │
+                                                   │ HTTPS
+                                                   ▼
+                                    ┌──────────────────────────────┐
+                                    │       TARGET WEBSITES        │
+                                    │                              │
+                                    │  Product Pages               │
+                                    │  Job Listings                │
+                                    │  Exam Schedules              │
+                                    │  News / Notices              │
+                                    │  Documentation               │
+                                    │  Any Public Web Page         │
+                                    └──────────────────────────────┘
 ```
 
 The extension's background service worker polls `GET /api/notifications/pending` every two minutes and converts pending changes into native `chrome.notifications`.
