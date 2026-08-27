@@ -1,287 +1,793 @@
 # WatchWeb
 
-Watch anything on a website and get notified when the meaningful content changes.
+**Monitor any meaningful part of a website and get notified when it changes.**
 
-WatchWeb is a Chrome Extension + web dashboard for monitoring specific sections of
-web pages (or whole pages) and detecting **meaningful** content changes — not
-just "the HTML changed." It ignores obvious noise (timestamps, view counters,
-random IDs) and shows exactly what changed: before, after, and a classified
-diff (e.g. `price_changed`, `text_added`, `availability_changed`).
+WatchWeb is a Chrome Extension and web dashboard for monitoring specific sections of web pages—or entire pages—and detecting **meaningful content changes**, not just raw HTML differences.
 
-## Product overview
+It filters common sources of noise such as timestamps, view counters, and random IDs, then shows exactly what changed with a structured before/after diff and change classification such as `price_changed`, `availability_changed`, `text_added`, or `text_removed`.
 
-1. Install the Chrome extension and log in (or register).
-2. Visit any page you want to monitor (exam schedule, product page, notice
-   board, job listing, etc.).
-3. Click the WatchWeb icon → **Select content on this page**.
-4. Hover/click the section you care about (or press Escape to cancel).
-5. Name the watch, pick a check interval and notification preference, and
-   create it.
-6. The server-side worker periodically re-checks the page. If the extracted,
-   normalized content actually changes, it's recorded as a `Change` with a
-   structured diff and a classification, and you get a browser notification.
-7. Open the dashboard to see change history, before/after diffs, and manage
-   watches (pause/resume/delete).
+## Product Overview
+
+1. Install the WatchWeb Chrome extension and log in or register.
+2. Visit the webpage you want to monitor, such as an exam schedule, product page, notice board, job listing, or documentation page.
+3. Open the WatchWeb extension and select **Select content on this page**.
+4. Hover over and select the section you want to monitor. Press `Escape` to cancel.
+5. Give the watch a name, choose a check interval and notification preference, and create the watch.
+6. The server-side monitoring worker periodically checks the target page. If the extracted and normalized content has meaningfully changed, WatchWeb records a `Change` with a structured diff and classification.
+7. The extension delivers browser notifications for detected changes.
+8. Open the dashboard to view change history, before/after differences, and manage watches.
 
 ## Architecture
 
+```text
+                         ┌──────────────────────────────┐
+                         │        Chrome Extension      │
+                         │                              │
+                         │  Popup                       │
+                         │  Content Script              │
+                         │  Background Service Worker   │
+                         └──────────────┬───────────────┘
+                                        │
+                              HTTPS REST API
+                               Bearer JWT
+                                        │
+                                        ▼
+                         ┌──────────────────────────────┐
+                         │      Node.js + Express        │
+                         │          Backend              │
+                         │                              │
+                         │  Authentication              │
+                         │  Watch Management             │
+                         │  Change History               │
+                         │  User Settings                │
+                         │  Notifications                │
+                         └──────────────┬───────────────┘
+                                        │
+                                        ▼
+                              ┌──────────────────┐
+                              │     MongoDB      │
+                              │                  │
+                              │ Users            │
+                              │ Watches          │
+                              │ Snapshots        │
+                              │ Changes          │
+                              └────────┬─────────┘
+                                       ▲
+                                       │
+                              Same MongoDB
+                              Separate Process
+                                       │
+                                       │
+                         ┌─────────────┴────────────┐
+                         │    Monitoring Worker      │
+                         │                          │
+                         │ Scheduler                │
+                         │ HTTP Fetcher             │
+                         │ Playwright Fetcher       │
+                         │ Content Extraction       │
+                         │ Normalization             │
+                         │ Hashing & Diffing         │
+                         │ Change Classification     │
+                         │ AI Summarization         │
+                         │ Notification Service     │
+                         └──────────────────────────┘
+
+                         ┌──────────────────────────┐
+                         │      Web Dashboard       │
+                         │                          │
+                         │ React + Vite + Tailwind  │
+                         └─────────────┬────────────┘
+                                       │
+                                HTTPS REST API
+                                       │
+                                       ▼
+                                  Backend API
 ```
-Chrome Extension (popup + content script + background service worker)
-        |  HTTPS REST API (Bearer JWT)
-        v
-Node.js + Express Backend  <---->  MongoDB (Users, Watches, Snapshots, Changes)
-        ^
-        |  same MongoDB, different process
-        |
-Monitoring Worker (polls MongoDB for due watches)
-        |
-        +-- HTTP fetch (axios) for static pages
-        +-- Playwright (headless Chromium) for JS-rendered pages
-        +-- Content extraction (cheerio + robust selector fallbacks)
-        +-- Normalization (noise stripping: timestamps, counters, IDs)
-        +-- SHA-256 hashing + word-level diff (diff package)
-        +-- Change classification (price/availability/text add-remove-modify/structure)
-        +-- Optional AI summary (pluggable; deterministic fallback always available)
-        +-- Notification service (marks Change.notificationStatus)
 
-Web Dashboard (React + Vite + Tailwind)
-        |  HTTPS REST API (same backend, same JWT)
-        v
-Node.js + Express Backend
-```
+The extension's background service worker polls `GET /api/notifications/pending` every two minutes and converts pending changes into native `chrome.notifications`.
 
-The extension's background service worker also polls
-`GET /api/notifications/pending` every 2 minutes and turns pending Changes
-into `chrome.notifications` — this is notification *delivery*, not website
-monitoring; all target-website polling happens exclusively in the worker
-process, server-side.
+This is **notification delivery only**. Target websites are monitored exclusively by the server-side worker.
 
-## Tech stack
+## Tech Stack
 
-- **Extension:** Manifest V3, React (popup only), vanilla JS (background +
-  content script), Vite, Tailwind.
-- **Dashboard:** React 18, Vite, Tailwind, React Router, axios, lucide-react.
-- **Backend:** Node.js, Express, MongoDB/Mongoose, JWT, Argon2id, Helmet,
-  CORS, express-rate-limit, express-validator, Pino.
-- **Worker:** Node.js, axios, Playwright (Chromium), cheerio, the `diff`
-  package, Pino.
+### Chrome Extension
 
-## Repository structure
+- Manifest V3
+- React
+- Vanilla JavaScript for background and content scripts
+- Vite
+- Tailwind CSS
+- Chrome Storage API
+- Chrome Scripting API
+- Chrome Notifications API
+- Chrome Alarms API
 
-```
+### Web Dashboard
+
+- React 18
+- Vite
+- Tailwind CSS
+- React Router
+- Axios
+- Lucide React
+
+### Backend
+
+- Node.js
+- Express
+- MongoDB
+- Mongoose
+- JWT
+- Argon2id
+- Helmet
+- CORS
+- Express Rate Limit
+- Express Validator
+- Pino
+
+### Monitoring Worker
+
+- Node.js
+- Axios
+- Playwright
+- Cheerio
+- `diff`
+- MongoDB/Mongoose
+- Pino
+- BullMQ/IORedis dependencies for future queue-based scaling
+
+## Repository Structure
+
+```text
 watchweb/
-├── backend/    # REST API, auth, watch CRUD, SSRF protection
-├── worker/     # monitoring engine: fetch → extract → normalize → diff → notify
-├── dashboard/  # React web app
-├── extension/  # Chrome MV3 extension (popup, content script, background)
-└── package.json (root workspace scripts)
+├── backend/       # REST API, authentication, watch management, SSRF protection
+├── worker/        # Monitoring engine: fetch → extract → normalize → diff → notify
+├── dashboard/     # React web dashboard
+├── extension/     # Chrome MV3 extension
+├── package.json   # Root workspace configuration
+├── package-lock.json
+└── README.md
 ```
 
 ## Installation
 
-Prerequisites: Node.js 18+, MongoDB running locally (or Atlas), and — for the
-worker — enough disk/network access for Playwright to download a Chromium
-build the first time you install its dependencies.
+### Prerequisites
+
+- Node.js 18+
+- MongoDB 6+
+- Chrome or Chromium
+- Internet access for Playwright browser installation
+
+MongoDB can run locally, through Docker, or through MongoDB Atlas.
+
+Install all project dependencies from the repository root:
 
 ```bash
-npm install                     # installs backend, worker, dashboard, extension
-cp backend/.env.example backend/.env
-cp worker/.env.example worker/.env
-cp dashboard/.env.example dashboard/.env
+npm install
 ```
 
-Edit `backend/.env` and `worker/.env` to point `MONGODB_URI` at your MongoDB
-instance and set a real `JWT_SECRET`.
-
-### MongoDB setup
-
-Any MongoDB 6+ instance works — local (`mongod`), Docker, or MongoDB Atlas.
-Set `MONGODB_URI` accordingly in both `backend/.env` and `worker/.env` (they
-must point at the **same** database).
-
-### Redis / BullMQ (optional, for horizontal scaling)
-
-The MVP scheduler (`worker/src/jobs/scheduler.js`) polls MongoDB directly for
-due watches and requires no Redis. The codebase includes `bullmq`/`ioredis`
-as dependencies and is structured so `pollAndDispatch()` can be swapped for a
-BullMQ consumer without touching `runCheck()` or anything downstream, once
-you need multiple independent worker processes coordinating via a shared
-queue instead of MongoDB polling + optimistic claiming.
-
-## Running the system
+Install the Playwright Chromium browser:
 
 ```bash
-npm run dev:backend      # http://localhost:4000
-npm run dev:worker       # polls MongoDB every 15s (configurable) and checks due watches
-npm run dev:dashboard    # http://localhost:5173
-npm run dev:extension    # vite build --watch, outputs to extension/dist
+npx playwright install chromium
 ```
 
-### Loading the unpacked extension in Chrome
+### Environment Configuration
 
-1. Run `npm run dev:extension` (or `cd extension && npm run build` once).
-2. Open `chrome://extensions`, enable **Developer mode**.
-3. Click **Load unpacked** and select `extension/dist`.
-4. Click the WatchWeb icon, register or log in, visit any page, and click
-   **Select content on this page**.
+Create the environment files from their examples:
 
-## Environment variables
+```text
+backend/.env
+worker/.env
+dashboard/.env
+```
 
-### backend/.env
+Copy the corresponding `.env.example` into each location.
 
-| Variable | Purpose |
-|---|---|
-| `MONGODB_URI` | MongoDB connection string |
-| `JWT_SECRET` | Secret used to sign/verify JWTs — must be long and random |
-| `CLIENT_URL` | Dashboard origin, allowed by CORS |
-| `EXTENSION_ID` | Chrome extension ID, allowed by CORS (`chrome-extension://<id>`) |
-| `MAX_WATCHES_PER_USER`, `MIN_CHECK_INTERVAL` | Abuse/resource limits |
-| `AI_PROVIDER`, `AI_API_KEY` | Optional AI change-summary provider |
+For local development, the backend and worker should use the same MongoDB database.
 
-### worker/.env
+Example:
 
-| Variable | Purpose |
-|---|---|
-| `MONGODB_URI` | Same database as the backend |
-| `WORKER_POLL_INTERVAL_MS`, `WORKER_BATCH_SIZE` | Scheduler tuning |
-| `MAX_CONCURRENT_PAGES`, `MAX_PAGE_LOAD_TIME` | Playwright resource limits |
-| `WORKER_MAX_CONTENT_CHARS` | Caps stored content size per snapshot |
-| `SNAPSHOT_RETENTION_DAYS` | How long old snapshots are kept (latest is always kept) |
+```env
+MONGODB_URI=mongodb://127.0.0.1:27017/watchweb
+```
 
-See `.env.example` in each package for the full list with defaults.
+Set a strong random value for:
+
+```env
+JWT_SECRET=your-long-random-secret
+```
+
+For the dashboard:
+
+```env
+VITE_API_BASE_URL=http://localhost:4000/api
+```
+
+The extension ID must also be configured in `backend/.env` after loading the unpacked extension into Chrome:
+
+```env
+EXTENSION_ID=your-chrome-extension-id
+```
+
+See the `.env.example` files in each package for the complete configuration.
+
+## MongoDB
+
+WatchWeb requires MongoDB for users, watches, snapshots, changes, and notification state.
+
+For local development:
+
+```text
+mongodb://127.0.0.1:27017/watchweb
+```
+
+The backend and worker must point to the **same database**.
+
+No Redis installation is required for the current MVP scheduler.
+
+## Redis / BullMQ
+
+The current scheduler uses MongoDB polling and does not require Redis.
+
+The project includes BullMQ and IORedis dependencies so the scheduler can later be migrated to a proper distributed queue.
+
+Current architecture:
+
+```text
+MongoDB
+   │
+   ▼
+MongoDB polling scheduler
+   │
+   ▼
+runCheck()
+```
+
+Future scalable architecture:
+
+```text
+MongoDB
+   │
+   ▼
+BullMQ / Redis
+   │
+   ├── Worker 1
+   ├── Worker 2
+   └── Worker 3
+```
+
+The detection pipeline is separated from scheduling so the queue implementation can be replaced without rewriting the core monitoring logic.
+
+## Running the System
+
+Run each service in its own terminal.
+
+### Backend
+
+```bash
+npm run dev:backend
+```
+
+Runs on:
+
+```text
+http://localhost:4000
+```
+
+### Worker
+
+```bash
+npm run dev:worker
+```
+
+The worker polls MongoDB for due watches. The default scheduler polling interval is 15 seconds.
+
+### Dashboard
+
+```bash
+npm run dev:dashboard
+```
+
+Runs on:
+
+```text
+http://localhost:5173
+```
+
+### Extension
+
+```bash
+npm run dev:extension
+```
+
+This builds the extension into:
+
+```text
+extension/dist
+```
+
+## Loading the Chrome Extension
+
+1. Run the extension build/watch command.
+2. Open `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Click **Load unpacked**.
+5. Select:
+
+```text
+extension/dist
+```
+
+6. Copy the generated extension ID.
+7. Add that ID to `backend/.env` as `EXTENSION_ID`.
+8. Restart the backend.
+9. Reload the WatchWeb extension in Chrome.
+
+Then open the WatchWeb extension and log in.
+
+## Typical Workflow
+
+```text
+User visits webpage
+        │
+        ▼
+Chrome Extension
+        │
+        ▼
+Select monitored element
+        │
+        ▼
+Generate and verify selectors
+        │
+        ▼
+Create Watch through API
+        │
+        ▼
+MongoDB
+        │
+        ▼
+Monitoring Worker
+        │
+        ├── HTTP fetch
+        │
+        └── Playwright fallback
+        │
+        ▼
+Extract content
+        │
+        ▼
+Normalize noise
+        │
+        ▼
+SHA-256 comparison
+        │
+        ▼
+Word-level diff
+        │
+        ▼
+Classify change
+        │
+        ├── Price
+        ├── Availability
+        ├── Text added
+        ├── Text removed
+        ├── Text modified
+        └── Structural change
+        │
+        ▼
+Store Change
+        │
+        ▼
+Notification pending
+        │
+        ▼
+Chrome Extension
+        │
+        ▼
+Browser notification
+```
+
+## Monitoring Engine
+
+### Fetch Strategy
+
+WatchWeb first attempts an HTTP request using Axios.
+
+If the request fails or the monitored selector cannot be found in the returned HTML, the worker can retry using Playwright.
+
+```text
+Watch
+ │
+ ▼
+HTTP Fetch
+ │
+ ├── Success + selector found ──► Extract
+ │
+ └── Failed / selector missing
+                  │
+                  ▼
+              Playwright
+                  │
+                  ▼
+                Extract
+```
+
+Once JavaScript rendering is determined to be required, the watch stores this information in `watch.requiresJs` so future checks can use the appropriate fetch strategy.
+
+Playwright uses a shared browser process, separate contexts per check, configurable concurrency, navigation timeouts, and resource blocking for unnecessary resources such as images, media, and fonts.
+
+### Content Extraction
+
+The worker attempts selectors in this order:
+
+1. Primary CSS selector
+2. Stored fallback selectors
+3. Selector failure
+
+The worker **does not silently fall back to whole-page monitoring** when the selected element disappears.
+
+Instead, it records the selector failure so the watch can be repaired.
+
+### Normalization
+
+WatchWeb removes common dynamic noise such as:
+
+- ISO timestamps
+- Relative timestamps such as `5 minutes ago`
+- `Last updated:` lines
+- View and visitor counters
+- Long UUID/hex-like identifiers
+
+Normalization is intentionally conservative.
+
+Plain numbers are not automatically removed because they may represent meaningful values such as:
+
+- Prices
+- Dates
+- Counts
+- Quantities
+- Deadlines
+
+### Change Detection
+
+Content is normalized and hashed using SHA-256.
+
+When hashes differ, WatchWeb generates a word-level diff.
+
+Changes can be classified as:
+
+```text
+price_changed
+availability_changed
+text_added
+text_removed
+text_modified
+structure_changed
+```
+
+Price detection is currency-symbol aware.
+
+Large-scale changes affecting more than 60% of the monitored content can be classified as structural changes.
+
+### Failure Handling
+
+A failed fetch or missing selector is **never treated as a content change**.
+
+Failures include:
+
+- DNS failures
+- Connection failures
+- HTTP failures
+- Timeouts
+- Playwright failures
+- Selector-not-found errors
+
+After the configured number of consecutive failures, the watch is marked as being in an error state and `lastError` is recorded.
+
+No `Change` record is created for a failed check.
+
+### Snapshot Retention
+
+A daily cleanup job removes snapshots older than `SNAPSHOT_RETENTION_DAYS`.
+
+The current snapshot for every watch is always preserved.
 
 ## Security
 
-- **Passwords:** Argon2id, never stored or logged in plaintext.
-- **Auth:** stateless JWTs with a `tokenVersion` field so password changes /
-  "log out everywhere" actually invalidate existing tokens.
-- **Authorization:** every watch/snapshot/change lookup is scoped to
-  `req.userId` (derived only from the verified JWT, never from client input);
-  cross-user access returns 404, not 403, to avoid leaking existence.
-- **SSRF protection** (`backend/src/utils/ssrfProtection.js`, mirrored in the
-  worker): blocks loopback, private/CGNAT/link-local ranges, cloud metadata
-  addresses (`169.254.169.254`), and non-http(s) schemes — enforced both at
-  watch-creation time and again at fetch time, including **per-redirect-hop**
-  re-validation, since a redirect can otherwise bypass the initial check.
-- **Rate limiting:** global API limiter plus a stricter one on `/api/auth/*`.
-- **Resource limits:** max response size, max page load time, max concurrent
-  Playwright pages/contexts, minimum monitoring interval, max watches/user.
-- **Minimal extension permissions:** `storage`, `activeTab`, `scripting`,
-  `notifications` only — no `tabs`, `history`, `cookies`, or `webRequest`,
-  and no persistent `content_scripts` matching every page; the content
-  script is injected on-demand via `chrome.scripting.executeScript` only
-  when the user clicks "Select content."
-- **Token handling:** the JWT is read/written only in the background service
-  worker (never exposed to the content script or the web page it runs in);
-  the popup and content script only ever send/receive plain data over
-  `chrome.runtime.sendMessage`.
+Security is a core part of WatchWeb because users can submit arbitrary URLs for server-side fetching.
 
-## Monitoring architecture details
+### Password Security
 
-- **Fetch strategy:** HTTP (axios) first; automatically retries with
-  Playwright if the initial fetch fails or the selector can't be located in
-  the raw HTML (heuristic for JS-rendered content), and remembers that
-  decision (`watch.requiresJs`) for future checks. Playwright reuses a single
-  browser process across checks (new contexts per check) and enforces a
-  concurrency limit, navigation timeout, and resource-type blocking
-  (images/media/fonts) for speed.
-- **Extraction:** primary CSS selector, then any stored fallback selectors,
-  then reports "the monitored section could not be found" rather than
-  silently falling back to whole-page monitoring.
-- **Normalization:** strips ISO timestamps, "N minutes/hours ago" phrases,
-  "Last updated:" lines, view/visitor counters, and long hex/UUID-like
-  tokens — deliberately conservative, so it never strips plain numbers
-  (prices, dates, counts) that could be a real change.
-- **Change classification:** price (currency-symbol-aware), availability
-  keywords, large-scale structural change (>60% of content touched), else
-  text added/removed/modified.
-- **Failures never look like changes:** fetch/DNS/timeout/selector-missing
-  errors set `watch.status = 'error'` after `MAX_FAILURES` consecutive
-  failures and record `lastError`, without creating a `Change` record.
-- **Retention:** a daily job deletes snapshots older than
-  `SNAPSHOT_RETENTION_DAYS`, always preserving each watch's current snapshot.
+Passwords are hashed using Argon2id.
 
-## API overview
+Plaintext passwords are never stored or logged.
 
+### Authentication
+
+WatchWeb uses stateless JWT authentication.
+
+A `tokenVersion` value allows previously issued tokens to be invalidated when required, including:
+
+- Password changes
+- Logout from all devices
+- Account security events
+
+### Authorization
+
+Protected resources are scoped to the authenticated user's ID.
+
+The user ID is derived from the verified JWT rather than client-supplied input.
+
+Cross-user resource access returns `404` rather than `403` to avoid revealing whether another user's resource exists.
+
+### SSRF Protection
+
+WatchWeb implements SSRF protection in both the backend and worker.
+
+Blocked targets include:
+
+- Loopback addresses
+- Private network ranges
+- CGNAT ranges
+- Link-local addresses
+- Cloud metadata addresses such as `169.254.169.254`
+- Unsupported URL schemes
+
+SSRF validation occurs:
+
+1. When creating a watch
+2. Before fetching a target
+3. After every redirect
+
+Redirect validation is important because an otherwise safe public URL can redirect to a private or metadata address.
+
+Only HTTP and HTTPS URLs are supported.
+
+### Rate Limiting
+
+The backend applies:
+
+- Global API rate limiting
+- Stricter rate limiting for authentication endpoints
+
+### Resource Limits
+
+WatchWeb limits resource consumption through:
+
+- Maximum watches per user
+- Minimum check interval
+- Maximum response size
+- Maximum page-load time
+- Maximum concurrent Playwright pages
+- Maximum stored content size
+
+### Chrome Extension Permissions
+
+The extension uses minimal permissions:
+
+```text
+storage
+activeTab
+scripting
+notifications
+alarms
 ```
-POST   /api/auth/register
-POST   /api/auth/login
-POST   /api/auth/logout
-POST   /api/auth/logout-all
-GET    /api/auth/me
 
+It does not request:
+
+```text
+tabs
+history
+cookies
+webRequest
+```
+
+There is also no persistent content script running on every website.
+
+The content script is injected only when the user explicitly starts content selection.
+
+### Token Handling
+
+The JWT is owned by the extension's background service worker.
+
+The popup and content script communicate with the background worker through Chrome runtime messages and do not directly access the JWT.
+
+## API
+
+### Authentication
+
+```text
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/logout
+POST /api/auth/logout-all
+GET  /api/auth/me
+```
+
+### Watches
+
+```text
 GET    /api/watches
 POST   /api/watches
 GET    /api/watches/:id
 PATCH  /api/watches/:id
 DELETE /api/watches/:id
-POST   /api/watches/:id/pause
-POST   /api/watches/:id/resume
-POST   /api/watches/:id/check
-GET    /api/watches/:id/changes
-GET    /api/changes/:id
-GET    /api/dashboard/stats
 
-GET    /api/notifications/pending   (polled by the extension)
-POST   /api/notifications/:id/ack
-
-PATCH  /api/users/me
-POST   /api/users/me/change-password
-POST   /api/users/me/delete-account
+POST /api/watches/:id/pause
+POST /api/watches/:id/resume
+POST /api/watches/:id/check
 ```
 
-All routes except `/auth/register`, `/auth/login`, and `/health` require
-`Authorization: Bearer <token>`.
+### Changes
+
+```text
+GET /api/watches/:id/changes
+GET /api/changes/:id
+```
+
+### Dashboard
+
+```text
+GET /api/dashboard/stats
+```
+
+### Notifications
+
+```text
+GET  /api/notifications/pending
+POST /api/notifications/:id/ack
+```
+
+### User Settings
+
+```text
+PATCH /api/users/me
+POST  /api/users/me/change-password
+POST  /api/users/me/delete-account
+```
+
+All routes require authentication except:
+
+```text
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/health
+```
 
 ## Testing
 
+Run backend tests:
+
 ```bash
-npm run test:backend   # auth, watch ownership/authorization, SSRF blocking
-npm run test:worker    # extraction, normalization, hashing, diff, classification, noise filtering
+npm run test:backend
 ```
 
-Backend tests use `mongodb-memory-server`; worker tests exercise the
-detection pipeline directly against HTML fixtures (no live network needed)
-plus a real local HTTP server for the SSRF-in-fetcher test.
+Run worker tests:
 
-## Known limitations
+```bash
+npm run test:worker
+```
 
-- **The MVP scheduler polls MongoDB directly** rather than using BullMQ/Redis
-  for job distribution. It's safe for a single worker process (uses an
-  optimistic `nextCheckAt` claim to avoid double-processing) but is not yet a
-  true multi-worker job queue — see the BullMQ note above for the intended
-  scale-up path.
-- **XPath selector support is minimal** (only simple `@id=...` expressions
-  are resolved); CSS selectors are the primary, fully-supported mechanism,
-  which covers the vast majority of real-world targets.
-- **AI summaries** are implemented for Anthropic's API behind
-  `AI_PROVIDER=anthropic` with a deterministic fallback; no other providers
-  are wired up yet (the abstraction supports adding them).
-- **Notification channels:** browser notifications only; the
-  `notificationService` module is intentionally structured so email/Telegram/
-  Discord can be added as new branches without touching calling code.
-- **In this build/verification environment**, MongoDB and Playwright's
-  browser binary could not be installed (no network access beyond package
-  registries), so integration tests requiring a live database or an actual
-  headless browser were not run end-to-end here. What *was* verified
-  directly: all worker detection-pipeline unit tests (extraction,
-  normalization, hashing, diffing, classification, noise filtering) against
-  real HTML fixtures; SSRF protection against a real local HTTP server and a
-  battery of blocked targets; password hashing/verification; JWT-protected
-  route behavior; and both the dashboard and extension production builds
-  compiling cleanly. Run `npm run dev:backend`/`dev:worker` against a real
-  MongoDB instance to complete end-to-end verification (watch creation →
-  worker check → change detection → notification → dashboard display).
+Run the complete test suite:
 
-## Recommended next improvements
+```bash
+npm test
+```
 
-1. Swap the MongoDB-polling scheduler for a BullMQ consumer for true
-   horizontal worker scaling.
-2. Add email/Telegram notification channels alongside browser notifications.
-3. Expand XPath support (e.g. via the `xpath` + `xmldom` packages) if
-   selector robustness on XPath-heavy sites becomes a priority.
-4. Add Playwright-based E2E tests for the full extension → backend → worker →
-   dashboard flow once a CI environment with browser/database access is
-   available.
-5. Add per-watch selector re-validation/repair suggestions when a selector
-   stops matching (currently it just reports the section as not found).
+Run linting:
+
+```bash
+npm run lint
+```
+
+### What Is Tested
+
+Backend tests cover areas such as:
+
+- Authentication
+- Password hashing
+- JWT authentication
+- Watch ownership
+- Authorization
+- SSRF protection
+
+Worker tests cover:
+
+- Content extraction
+- Selector fallback
+- Noise normalization
+- SHA-256 hashing
+- Word-level diffing
+- Price detection
+- Availability detection
+- Text additions/removals/modifications
+- Structural changes
+- Dynamic timestamp filtering
+- Fetcher SSRF protection
+
+## Monitoring Limitations
+
+WatchWeb cannot reliably monitor every website.
+
+Monitoring may fail for pages that:
+
+- Require authentication or private browser sessions
+- Block automated requests
+- Require CAPTCHA or anti-bot challenges
+- Depend on browser interactions the worker cannot reproduce
+- Render content in unsupported ways
+- Continuously mutate content in ways that cannot reliably be distinguished from meaningful changes
+- Remove or significantly change the monitored element
+
+A page that is visible to the user in Chrome is **not automatically guaranteed to be accessible to the server-side worker**.
+
+When a check fails or a selector disappears, WatchWeb records the failure rather than creating a false change event.
+
+## Known Limitations
+
+### Scheduler
+
+The MVP scheduler polls MongoDB directly instead of using BullMQ/Redis.
+
+It is suitable for a single worker process and uses optimistic claiming to prevent duplicate processing.
+
+A distributed queue should be introduced when horizontal worker scaling becomes necessary.
+
+### XPath
+
+XPath support is currently minimal.
+
+CSS selectors are the primary supported selector mechanism.
+
+### AI Summaries
+
+AI-generated summaries are optional.
+
+The current implementation supports Anthropic through:
+
+```env
+AI_PROVIDER=anthropic
+```
+
+When AI is disabled or unavailable, WatchWeb uses a deterministic summary generator.
+
+AI is an enhancement layer and is not responsible for deciding whether a page changed.
+
+### Notifications
+
+The current notification channel is browser notifications through the Chrome extension.
+
+The notification service is structured so additional channels such as email, Telegram, or Discord can be added later.
+
+### End-to-End Browser/Database Testing
+
+The original development environment did not provide the required live MongoDB and Playwright browser environment, so some end-to-end scenarios could not initially be exercised there.
+
+Local verification should include the complete flow:
+
+```text
+Watch creation
+      ↓
+Worker check
+      ↓
+Snapshot
+      ↓
+Website change
+      ↓
+Change detection
+      ↓
+Notification
+      ↓
+Dashboard history
+```
+
+## Recommended Future Improvements
+
+1. Replace MongoDB polling with BullMQ/Redis when multiple workers are required.
+2. Add email, Telegram, and Discord notification channels.
+3. Expand XPath support if real-world usage demonstrates a need for it.
+4. Add Playwright-based E2E tests covering extension → backend → worker → dashboard.
+5. Add selector re-validation and repair suggestions when monitored elements disappear.
+6. Add watch-health diagnostics showing successful checks, failures, selector status, and last successful fetch.
+7. Add explicit support for different monitoring states such as active, paused, and error.
