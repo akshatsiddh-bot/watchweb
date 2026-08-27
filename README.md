@@ -38,7 +38,7 @@ WatchWeb extracts the monitored content, normalizes common dynamic noise, detect
 
 Download the latest WatchWeb Chrome Extension:
 
-[⬇️ Download WatchWeb Extension v1.0.0](https://github.com/akshatsiddh-bot/watchweb/releases/download/v1.0.1/watchweb-extension-v1.0.1.zip)
+[⬇️ Download WatchWeb Extension v1.0.1](https://github.com/akshatsiddh-bot/watchweb/releases/download/v1.0.1/watchweb-extension-v1.0.1.zip)
 
 After downloading the ZIP, follow the installation steps below.
 
