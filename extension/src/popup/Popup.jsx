@@ -1,38 +1,52 @@
-import { useEffect, useState } from 'react';
-import { Radar, Eye, Plus, LogOut, ExternalLink, Pause, Play, Trash2, RefreshCw } from 'lucide-react';
-import { sendMessage } from '../services/messaging.js';
+import { useEffect, useState } from "react";
+import {
+  Radar,
+  Eye,
+  Plus,
+  LogOut,
+  ExternalLink,
+  Pause,
+  Play,
+  Trash2,
+  RefreshCw,
+} from "lucide-react";
+import { sendMessage } from "../services/messaging.js";
 
-const DASHBOARD_URL = 'http://localhost:5173';
+const DASHBOARD_URL = "https://watchweb-dashboard.vercel.app";
 
 function StatusDot({ status }) {
   const colors = {
-    active: 'bg-emerald-500',
-    paused: 'bg-amber-500',
-    error: 'bg-red-500',
+    active: "bg-emerald-500",
+    paused: "bg-amber-500",
+    error: "bg-red-500",
   };
-  return <span className={`inline-block h-2 w-2 rounded-full ${colors[status] || 'bg-slate-400'}`} />;
+  return (
+    <span
+      className={`inline-block h-2 w-2 rounded-full ${colors[status] || "bg-slate-400"}`}
+    />
+  );
 }
 
 function AuthView({ onAuthed }) {
-  const [mode, setMode] = useState('login');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [mode, setMode] = useState("login");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError('');
+    setError("");
     setSubmitting(true);
     try {
       const res =
-        mode === 'login'
-          ? await sendMessage('LOGIN', { email, password })
-          : await sendMessage('REGISTER', { name, email, password });
+        mode === "login"
+          ? await sendMessage("LOGIN", { email, password })
+          : await sendMessage("REGISTER", { name, email, password });
       onAuthed(res.user);
     } catch (err) {
-      setError(err.message || 'Something went wrong.');
+      setError(err.message || "Something went wrong.");
     } finally {
       setSubmitting(false);
     }
@@ -45,7 +59,7 @@ function AuthView({ onAuthed }) {
         <span className="font-semibold text-slate-900">WatchWeb</span>
       </div>
       <form onSubmit={handleSubmit} className="space-y-2.5">
-        {mode === 'register' && (
+        {mode === "register" && (
           <input
             className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
             placeholder="Name"
@@ -77,14 +91,20 @@ function AuthView({ onAuthed }) {
           disabled={submitting}
           className="w-full rounded-lg bg-brand-600 py-1.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
         >
-          {submitting ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
+          {submitting
+            ? "Please wait…"
+            : mode === "login"
+              ? "Log in"
+              : "Create account"}
         </button>
       </form>
       <button
         className="mt-3 w-full text-center text-xs text-slate-500 hover:underline"
-        onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+        onClick={() => setMode(mode === "login" ? "register" : "login")}
       >
-        {mode === 'login' ? "Don't have an account? Register" : 'Already have an account? Log in'}
+        {mode === "login"
+          ? "Don't have an account? Register"
+          : "Already have an account? Log in"}
       </button>
     </div>
   );
@@ -93,16 +113,16 @@ function AuthView({ onAuthed }) {
 function WatchesView({ user, onLogout }) {
   const [watches, setWatches] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [selecting, setSelecting] = useState(false);
 
   async function loadWatches() {
     try {
-      const res = await sendMessage('LIST_WATCHES');
+      const res = await sendMessage("LIST_WATCHES");
       setWatches(res.watches);
     } catch {
-      setError('Could not load watches.');
+      setError("Could not load watches.");
     } finally {
       setLoading(false);
     }
@@ -115,9 +135,15 @@ function WatchesView({ user, onLogout }) {
   async function handleSelectContent() {
     setSelecting(true);
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
       if (!tab?.id) return;
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["content.js"],
+      });
       window.close(); // selection happens on the page itself; nothing more to do in the popup
     } finally {
       setSelecting(false);
@@ -127,12 +153,12 @@ function WatchesView({ user, onLogout }) {
   async function handleAction(id, action) {
     setBusyId(id);
     try {
-      if (action === 'pause') await sendMessage('PAUSE_WATCH', { id });
-      if (action === 'resume') await sendMessage('RESUME_WATCH', { id });
-      if (action === 'delete') await sendMessage('DELETE_WATCH', { id });
+      if (action === "pause") await sendMessage("PAUSE_WATCH", { id });
+      if (action === "resume") await sendMessage("RESUME_WATCH", { id });
+      if (action === "delete") await sendMessage("DELETE_WATCH", { id });
       await loadWatches();
     } catch {
-      setError('Action failed.');
+      setError("Action failed.");
     } finally {
       setBusyId(null);
     }
@@ -145,7 +171,11 @@ function WatchesView({ user, onLogout }) {
           <Radar className="h-5 w-5 text-brand-600" />
           <span className="font-semibold text-slate-900">WatchWeb</span>
         </div>
-        <button title="Log out" onClick={onLogout} className="text-slate-400 hover:text-slate-700">
+        <button
+          title="Log out"
+          onClick={onLogout}
+          className="text-slate-400 hover:text-slate-700"
+        >
           <LogOut className="h-4 w-4" />
         </button>
       </div>
@@ -162,29 +192,39 @@ function WatchesView({ user, onLogout }) {
       </div>
 
       <div className="flex-1 overflow-y-auto border-t border-slate-100 px-3 pb-3">
-        {loading && <p className="pt-3 text-center text-xs text-slate-500">Loading…</p>}
-        {error && <p className="pt-3 text-center text-xs text-red-600">{error}</p>}
+        {loading && (
+          <p className="pt-3 text-center text-xs text-slate-500">Loading…</p>
+        )}
+        {error && (
+          <p className="pt-3 text-center text-xs text-red-600">{error}</p>
+        )}
         {!loading && watches.length === 0 && (
           <p className="pt-6 text-center text-xs text-slate-500">
-            No watches yet. Click &quot;Select content&quot; on any page to create one.
+            No watches yet. Click &quot;Select content&quot; on any page to
+            create one.
           </p>
         )}
         <ul className="space-y-2 pt-2">
           {watches.map((w) => (
-            <li key={w._id} className="rounded-lg border border-slate-200 p-2.5">
+            <li
+              key={w._id}
+              className="rounded-lg border border-slate-200 p-2.5"
+            >
               <div className="flex items-center gap-1.5">
                 <StatusDot status={w.status} />
-                <span className="truncate text-sm font-medium text-slate-900">{w.name}</span>
+                <span className="truncate text-sm font-medium text-slate-900">
+                  {w.name}
+                </span>
               </div>
               <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-slate-400">
                 <ExternalLink className="h-2.5 w-2.5 shrink-0" />
                 {w.url}
               </p>
               <div className="mt-1.5 flex gap-1">
-                {w.status === 'paused' ? (
+                {w.status === "paused" ? (
                   <button
                     disabled={busyId === w._id}
-                    onClick={() => handleAction(w._id, 'resume')}
+                    onClick={() => handleAction(w._id, "resume")}
                     className="rounded p-1 text-slate-500 hover:bg-slate-100"
                   >
                     <Play className="h-3.5 w-3.5" />
@@ -192,7 +232,7 @@ function WatchesView({ user, onLogout }) {
                 ) : (
                   <button
                     disabled={busyId === w._id}
-                    onClick={() => handleAction(w._id, 'pause')}
+                    onClick={() => handleAction(w._id, "pause")}
                     className="rounded p-1 text-slate-500 hover:bg-slate-100"
                   >
                     <Pause className="h-3.5 w-3.5" />
@@ -200,7 +240,7 @@ function WatchesView({ user, onLogout }) {
                 )}
                 <button
                   disabled={busyId === w._id}
-                  onClick={() => handleAction(w._id, 'delete')}
+                  onClick={() => handleAction(w._id, "delete")}
                   className="rounded p-1 text-slate-500 hover:bg-red-50 hover:text-red-600"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -227,18 +267,20 @@ export default function Popup() {
   const [user, setUser] = useState(undefined); // undefined = loading, null = logged out
 
   useEffect(() => {
-    sendMessage('GET_ME')
+    sendMessage("GET_ME")
       .then((res) => setUser(res.user))
       .catch(() => setUser(null));
   }, []);
 
   async function handleLogout() {
-    await sendMessage('LOGOUT').catch(() => {});
+    await sendMessage("LOGOUT").catch(() => {});
     setUser(null);
   }
 
   if (user === undefined) {
-    return <div className="p-6 text-center text-xs text-slate-500">Loading…</div>;
+    return (
+      <div className="p-6 text-center text-xs text-slate-500">Loading…</div>
+    );
   }
 
   if (!user) {
