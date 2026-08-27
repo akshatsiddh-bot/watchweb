@@ -22,11 +22,11 @@ WatchWeb extracts the monitored content, normalizes common dynamic noise, detect
 
 ## 🔗 Quick Links
 
-| Resource              | Link                                                                                         |
-| --------------------- | -------------------------------------------------------------------------------------------- |
-| **Chrome Extension**  | [Download from GitHub Releases](https://github.com/akshatsiddh-bot/watchweb/releases/latest) |
-| **Live Dashboard**    | [watchweb-dashboard.vercel.app](https://watchweb-dashboard.vercel.app)                       |
-| **GitHub Repository** | [github.com/akshatsiddh-bot/watchweb](https://github.com/akshatsiddh-bot/watchweb)           |
+| Resource              | Link                                                                                                                                |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **Chrome Extension**  | [Download from GitHub Releases](https://github.com/akshatsiddh-bot/watchweb/releases/download/v1.0.0/watchweb-extension-v1.0.0.zip) |
+| **Live Dashboard**    | [watchweb-dashboard.vercel.app](https://watchweb-dashboard.vercel.app)                                                              |
+| **GitHub Repository** | [github.com/akshatsiddh-bot/watchweb](https://github.com/akshatsiddh-bot/watchweb)                                                  |
 
 > **Important:** The Chrome Extension is required to create watches because it provides the webpage content-selection workflow. The dashboard is used to manage watches and inspect detected changes.
 
@@ -36,11 +36,11 @@ WatchWeb extracts the monitored content, normalizes common dynamic noise, detect
 
 ## 1. Download the Chrome Extension
 
-Download the latest WatchWeb extension ZIP from the GitHub Releases page:
+Download the latest WatchWeb Chrome Extension:
 
-**[Download WatchWeb Extension](https://github.com/akshatsiddh-bot/watchweb/releases/latest)**
+[⬇️ Download WatchWeb Extension v1.0.0](https://github.com/akshatsiddh-bot/watchweb/releases/download/v1.0.0/watchweb-extension-v1.0.0.zip)
 
-Download the latest release ZIP file.
+After downloading the ZIP, follow the installation steps below.
 
 ---
 
