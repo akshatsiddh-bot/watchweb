@@ -38,7 +38,7 @@ WatchWeb extracts the monitored content, normalizes common dynamic noise, detect
 
 Download the latest WatchWeb extension ZIP from the GitHub Releases page:
 
-**[Download WatchWeb Extension]([⬇️ Download WatchWeb Extension](https://github.com/akshatsiddh-bot/watchweb/releases/latest/download/watchweb-extension.zip))**
+**[Download WatchWeb Extension](https://github.com/akshatsiddh-bot/watchweb/releases/latest)**
 
 Download the latest release ZIP file.
 
